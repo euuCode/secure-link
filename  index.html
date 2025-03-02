@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureLink - Compartilhamento Seguro</title>
+    <style>
+        body {
+            background: linear-gradient(180deg, #0F1419, #1F2A37);
+            color: #E5E7EB;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: #1F2A37;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 2px solid #10B981;
+            width: 700px;
+        }
+        .header {
+            text-align: center;
+            color: #10B981;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .input-field, .button, .select {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 15px;
+            border: 2px solid #10B981;
+            background-color: #2D3748;
+            color: #E5E7EB;
+            font-family: 'Inter', sans-serif;
+            font-size: 14pt;
+        }
+        .button {
+            background-color: #10B981;
+            color: #E5E7EB;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 8px rgba(16, 185, 129, 0.4);
+        }
+        .button-danger {
+            background-color: #EF4444;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+        }
+        .button-danger:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 8px rgba(239, 68, 68, 0.4);
+        }
+        .link {
+            color: #10B981;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+        .logs {
+            background-color: #1F2A37;
+            border-radius: 15px;
+            border: 2px solid #10B981;
+            padding: 10px;
+            margin: 10px 0;
+            height: 150px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-family: 'Consolas', monospace;
+            font-size: 12pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">SecureLink - Compartilhamento Seguro</div>
+        <input type="text" class="input-field" id="message" placeholder="Digite uma mensagem ou caminho do arquivo" />
+        <input type="button" class="button" value="Carregar Arquivo" onclick="loadFile()" />
+        <input type="password" class="input-field" id="pin" placeholder="PIN (4 dígitos)" />
+        <select class="select" id="expiration">
+            <option value="10">10 minutos</option>
+            <option value="30" selected>30 minutos</option>
+            <option value="60">60 minutos</option>
+            <option value="120">120 minutos</option>
+        </select>
+        <button class="button" onclick="createSecureLink()">Criar Link Seguro</button>
+        <button class="button button-danger" id="cancelButton" disabled onclick="cancelLink()">Cancelar Link</button>
+        <div id="link" class="link">-</div>
+        <div class="logs" id="logs"></div>
+        <button class="button" id="pdfButton" disabled onclick="generatePDF()">Gerar Relatório PDF</button>
+        <button class="button" onclick="showHelp()">Ajuda</button>
+    </div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [link, setLink] = useState("-");
+            const [logs, setLogs] = useState("");
+            const [cancelEnabled, setCancelEnabled] = useState(false);
+            const [pdfEnabled, setPdfEnabled] = useState(false);
+
+            const logMessage = (message) => {
+                setLogs(prev => prev + message + "\n");
+                document.getElementById('logs').scrollTop = document.getElementById('logs').scrollHeight;
+            };
+
+            const createSecureLink = () => {
+                const message = document.getElementById('message').value;
+                const pin = document.getElementById('pin').value;
+                const expiration = document.getElementById('expiration').value;
+
+                if (!message || !pin || !pin.match(/^\d{4}$/)) {
+                    alert("Digite uma mensagem/arquivo e um PIN de 4 dígitos!");
+                    return;
+                }
+
+                window.ipcRenderer.send('create-link', { message, pin, expiration });
+            };
+
+            const cancelLink = () => {
+                if (link !== "-") {
+                    setLink("-");
+                    setCancelEnabled(false);
+                    setPdfEnabled(false);
+                    logMessage("[color=#EF4444][!] Link cancelado com sucesso![/color]");
+                    window.ipcRenderer.send('cancel-link');
+                }
+            };
+
+            const generatePDF = () => {
+                window.ipcRenderer.send('generate-pdf');
+            };
+
+            const loadFile = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            document.getElementById('message').value = file.path;
+                            logMessage("[color=#10B981][✓] Arquivo " + file.name + " carregado![/color]");
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            };
+
+            const showHelp = () => {
+                alert(`
+[Security]$ Manual do SecureLink - Uso apenas educacional!
+
+Descrição:
+O SecureLink é uma ferramenta para criar links seguros e temporários para compartilhar mensagens ou arquivos, focada em cibersegurança, usabilidade, e facilidade. Use apenas para fins pessoais, educacionais, ou testes autorizados. Uso não autorizado é ilegal.
+
+Instruções:
+1. Digite uma mensagem ou carregue um arquivo no campo correspondente.
+2. Insira um PIN de 4 dígitos para proteger o link.
+3. Escolha o tempo de expiração (10-120 minutos).
+4. Clique em "Criar Link Seguro" para gerar um link único, acessível via navegador local (http://127.0.0.1:8000).
+5. Use "Cancelar Link" para invalidar o link antes da expiração.
+6. Clique em "Gerar Relatório PDF" para salvar logs na área de trabalho.
+7. Pressione "Ajuda" para ver este manual.
+
+Avisos:
+- Este programa é uma simulação educativa. Não use para compartilhar dados sensíveis em sistemas não autorizados.
+- Links expiram automaticamente, exigem PIN, e só funcionam localmente no notebook.
+- Relatórios são salvos em 'securelink_logs.json' e PDF na área de trabalho.
+- Não use este programa para fins maliciosos ou ilegais.
+
+Futuro:
+- Expansão para smartphones (Android/iOS), IoT (Raspberry Pi), e nuvem (AWS/Azure).
+- Integração com autenticação biométrica e APIs de segurança.
+
+Para mais informações, consulte o GitHub: https://github.com/euuCode/securelink
+                `);
+            };
+
+            useEffect(() => {
+                window.ipcRenderer.on('create-link-reply', (event, arg) => {
+                    if (arg.error) {
+                        logMessage(`[color=#EF4444][!] Erro: ${arg.error}[/color]`);
+                    } else {
+                        setLink(`<a href="${arg.link}" target="_blank" style="color: #10B981; text-decoration: none;">${arg.link}</a>`);
+                        setCancelEnabled(true);
+                        setPdfEnabled(true);
+                        logMessage(`[color=#10B981][✓] Link seguro criado com sucesso![/color]\nExpira em: ${arg.expiration}\nPIN: ${arg.pin}`);
+                        alert(`Link criado: ${arg.link}\nExpira em ${arg.expiration.split(' ')[0]} minutos. Use o PIN ${arg.pin} para acessar no navegador.`);
+                    }
+                });
+
+                window.ipcRenderer.on('generate-pdf-reply', (event, arg) => {
+                    if (arg.error) {
+                        logMessage(`[color=#EF4444][!] Erro ao gerar PDF: ${arg.error}[/color]`);
+                    } else {
+                        logMessage(`[color=#10B981][✓] ${arg.success}[/color]`);
+                    }
+                });
+
+                return () => {
+                    window.ipcRenderer.removeAllListeners('create-link-reply');
+                    window.ipcRenderer.removeAllListeners('generate-pdf-reply');
+                };
+            }, []);
+
+            return (
+                <div className="container">
+                    <div className="header">SecureLink - Compartilhamento Seguro</div>
+                    <input type="text" className="input-field" id="message" placeholder="Digite uma mensagem ou caminho do arquivo" />
+                    <input type="button" className="button" value="Carregar Arquivo" onClick={loadFile} />
+                    <input type="password" className="input-field" id="pin" placeholder="PIN (4 dígitos)" />
+                    <select className="select" id="expiration">
+                        <option value="10">10 minutos</option>
+                        <option value="30" selected>30 minutos</option>
+                        <option value="60">60 minutos</option>
+                        <option value="120">120 minutos</option>
+                    </select>
+                    <button className="button" onClick={createSecureLink}>Criar Link Seguro</button>
+                    <button className={`button ${cancelEnabled ? '' : 'button-danger'}`} id="cancelButton" disabled={!cancelEnabled} onClick={cancelLink}>Cancelar Link</button>
+                    <div id="link" className="link" dangerouslySetInnerHTML={{ __html: link }}></div>
+                    <div className="logs" id="logs" dangerouslySetInnerHTML={{ __html: logs.replace(/\n/g, '<br>') }}></div>
+                    <button className="button" id="pdfButton" disabled={!pdfEnabled} onClick={generatePDF}>Gerar Relatório PDF</button>
+                    <button className="button" onClick={showHelp}>Ajuda</button>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.querySelector('.container'));
+    </script>
+</body>
+</html>
