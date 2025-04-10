@@ -1,6 +1,9 @@
-============================================================
-Tutorial Completo para Instalar, Configurar, Testar e Lançar o SecureLink
-============================================================
+
+# Secure Link
+
+
+## Tutorial Completo para Instalar, Configurar, Testar e Lançar o SecureLink
+
 
 Bem-vindo ao tutorial detalhado para o SecureLink, uma ferramenta de cibersegurança para criar links seguros e temporários em Python, Electron, e React. Este guia é para o Linux Mint, mas pode ser adaptado para Windows. Siga os passos no seu ritmo tranquilo, mantendo o uso ético apenas no notebook pessoal como cobaia autorizada.
 
